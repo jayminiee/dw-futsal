@@ -64,7 +64,6 @@
             animation: slideUp 0.3s ease-out forwards;
         }
 
-        /* Custom Checkbox for Player Selection */
         .player-checkbox:checked + div {
             background-color: #10b981;
             color: white;
@@ -84,15 +83,18 @@
         <!-- Loading Overlay -->
         <div id="loadingOverlay" class="fixed inset-0 bg-slate-900 bg-opacity-90 z-[99] flex flex-col items-center justify-center text-white transition-opacity duration-500">
             <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500 mb-4"></div>
-            <p class="text-sm font-bold tracking-wider">실시간 클라우드 연결 중...</p>
-            <p class="text-xs text-slate-400 mt-2">친구들과 실시간으로 데이터를 공유합니다.</p>
+            <p class="text-sm font-bold tracking-wider" id="loadingText">데이터 불러오는 중...</p>
+            <p class="text-xs text-slate-400 mt-2" id="loadingSubtext">실시간 데이터베이스 연결 상태를 확인합니다.</p>
         </div>
 
         <!-- Header -->
         <header class="bg-brand-600 text-white p-4 sticky top-0 z-10 shadow-md">
             <div class="flex justify-between items-center">
                 <h1 class="text-xl font-bold tracking-tight"><i class="fa-solid fa-futbol mr-2"></i>덕원고 풋살 통계</h1>
-                <button id="infoBtn" class="text-brand-100 hover:text-white transition"><i class="fa-solid fa-circle-info"></i></button>
+                <div class="flex items-center space-x-2">
+                    <span id="cloud-badge" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500 text-white">로컬 모드</span>
+                    <button id="infoBtn" class="text-brand-100 hover:text-white transition"><i class="fa-solid fa-circle-info text-lg"></i></button>
+                </div>
             </div>
         </header>
 
@@ -350,6 +352,33 @@
             </div>
         </div>
 
+        <!-- App Info / Firebase Setup Modal -->
+        <div id="infoModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex-col justify-center p-4 max-w-md mx-auto">
+            <div class="bg-white rounded-2xl p-6 shadow-xl max-h-[85vh] overflow-y-auto hide-scrollbar">
+                <div class="flex justify-between items-center mb-4 pb-2 border-b">
+                    <h3 class="text-lg font-extrabold text-slate-800"><i class="fa-solid fa-cloud text-brand-500 mr-2"></i>클라우드 동기화 안내</h3>
+                    <button onclick="closeModal('infoModal')" class="text-slate-400 hover:text-slate-700 text-xl"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                
+                <div class="space-y-4 text-sm text-slate-600 leading-relaxed">
+                    <p class="font-semibold text-slate-800">현재 <span id="info-mode-text" class="text-amber-600">로컬 모드(내 폰 저장)</span>로 작동 중입니다.</p>
+                    <p>친구들과 데이터를 실시간으로 공유하려면, 나만의 구글 무료 클라우드(Firebase)를 연결해야 합니다.</p>
+                    
+                    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100 text-xs space-y-2">
+                        <p class="font-bold text-slate-700"><i class="fa-solid fa-key mr-1"></i> 연동 방법 (간단 3단계):</p>
+                        <ol class="list-decimal list-inside space-y-1.5 text-slate-500">
+                            <li><a href="https://console.firebase.google.com" target="_blank" class="text-blue-600 font-semibold underline">구글 파이어베이스 콘솔</a> 접속 후 무료 프로젝트를 만듭니다.</li>
+                            <li>웹(Web, &lt;/&gt; 아이콘) 앱을 등록하고 화면에 나타나는 <strong>firebaseConfig</strong> 코드를 복사합니다.</li>
+                            <li>이 파일(`index.html`) 소스코드의 <code class="bg-slate-200 px-1 py-0.5 rounded text-red-600">92번째 줄</code> 주변에 있는 <code class="bg-slate-200 px-1 py-0.5 rounded">MY_FIREBASE_CONFIG</code> 상수에 복사한 값을 넣어 저장하면 끝!</li>
+                        </ol>
+                    </div>
+                    
+                    <p class="text-xs text-slate-400">※ 로컬 저장 장치에 보관된 데이터는 폰을 초기화하거나 브라우저 쿠키를 삭제하면 사라집니다. 친구들과 단톡방에서 함께 사용하시려면 가급적 클라우드 연동을 적극 권장합니다.</p>
+                </div>
+                <button onclick="closeModal('infoModal')" class="w-full mt-5 bg-slate-800 text-white font-bold rounded-xl py-3 shadow-md hover:bg-slate-700 transition">확인했습니다</button>
+            </div>
+        </div>
+
         <!-- Toast Notification -->
         <div id="toast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-medium transition-opacity duration-300 opacity-0 pointer-events-none z-50">
             알림 메시지
@@ -358,22 +387,31 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global state and app parameters
+        // ==========================================================
+        // 🔒 [설정] 나만의 실시간 클라우드를 연동하고 싶을 때 아래의 값을 변경하세요!
+        // ==========================================================
+        const MY_FIREBASE_CONFIG = null; // 👈 여기에 복사한 json 설정을 넣으세요. (예: { apiKey: "...", ... })
+        // ==========================================================
+
+        let firebaseConfig = MY_FIREBASE_CONFIG;
+        let useCloud = false;
+
+        // Auto-detect environment configurations
+        try {
+            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                firebaseConfig = JSON.parse(__firebase_config);
+                useCloud = true;
+            } else if (MY_FIREBASE_CONFIG !== null) {
+                useCloud = true;
+            }
+        } catch (e) {
+            console.warn("Could not parse environment config. Switching to local mode.");
+        }
+
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'deokwon-futsal-v1';
-        const firebaseConfig = JSON.parse(__firebase_config);
-
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        // Shared Collections under Strict Paths (Rule 1)
-        const playersCol = collection(db, 'artifacts', appId, 'public', 'data', 'players');
-        const matchesCol = collection(db, 'artifacts', appId, 'public', 'data', 'matches');
-        const finesCol = collection(db, 'artifacts', appId, 'public', 'data', 'fines');
 
         // State variables
         let players = [];
@@ -383,47 +421,20 @@
         let currentSort = 'winrate';
         let formScoreA = 0;
         let formScoreB = 0;
-        let currentUser = null;
+        let db = null;
+        let auth = null;
 
-        // Initialize App & Auth (Rule 3)
-        async function init() {
-            // Set default date input KST format
-            const today = new Date();
-            const offset = today.getTimezoneOffset() * 60000;
-            const kstDate = new Date(today.getTime() - offset + (9 * 3600000));
-            document.getElementById('matchDate').value = kstDate.toISOString().split('T')[0];
-
-            setupSorting();
-
-            // Perform authentication before database queries
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    const userCredential = await signInWithCustomToken(auth, __initial_auth_token);
-                    currentUser = userCredential.user;
-                } else {
-                    const userCredential = await signInAnonymously(auth);
-                    currentUser = userCredential.user;
-                }
-                setupRealtimeListeners();
-            } catch (err) {
-                console.error("Authentication failed: ", err);
-                showToast("네트워크 인증 실패. 새로고침 해주세요.");
-            }
-        }
-
-        // Setup real-time listeners for all 3 collections
-        let loadedCollections = { players: false, matches: false, fines: false };
-
-        function checkLoadProgress() {
-            if (loadedCollections.players && loadedCollections.matches && loadedCollections.fines) {
-                if (players.length === 0) {
-                    // Automatically seed initial data if database is empty
-                    seedInitialData();
-                } else {
-                    hideLoading();
-                    updateAll();
-                }
-            }
+        // Core UI Handlers
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            if(!toast) return;
+            toast.innerText = msg;
+            toast.classList.remove('opacity-0');
+            toast.classList.add('opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0');
+            }, 2500);
         }
 
         function hideLoading() {
@@ -436,95 +447,164 @@
             }
         }
 
-        function setupRealtimeListeners() {
-            if (!currentUser) return;
+        // Initialize App
+        async function init() {
+            // Default date setup
+            const today = new Date();
+            const offset = today.getTimezoneOffset() * 60000;
+            const kstDate = new Date(today.getTime() - offset + (9 * 3600000));
+            document.getElementById('matchDate').value = kstDate.toISOString().split('T')[0];
 
-            // 1. Players Snapshot
-            onSnapshot(playersCol, (snapshot) => {
-                players = [];
-                snapshot.forEach(doc => {
-                    players.push(doc.data());
-                });
-                loadedCollections.players = true;
-                if (loadedCollections.matches && loadedCollections.fines) updateAll();
-                checkLoadProgress();
-            }, (err) => {
-                console.error("Players load failed: ", err);
-            });
+            setupSorting();
 
-            // 2. Matches Snapshot
-            onSnapshot(matchesCol, (snapshot) => {
-                matches = [];
-                snapshot.forEach(doc => {
-                    matches.push(doc.data());
-                });
-                loadedCollections.matches = true;
-                if (loadedCollections.players && loadedCollections.fines) updateAll();
-                checkLoadProgress();
-            }, (err) => {
-                console.error("Matches load failed: ", err);
-            });
+            if (useCloud && firebaseConfig) {
+                // Cloud Mode
+                document.getElementById('loadingText').innerText = "실시간 클라우드 연결 중...";
+                document.getElementById('loadingSubtext').innerText = "구글 Firebase에 안전하게 접속하고 있습니다.";
+                document.getElementById('cloud-badge').innerText = "실시간 클라우드";
+                document.getElementById('cloud-badge').className = "text-[10px] px-2 py-0.5 rounded-full font-bold bg-brand-500 text-white";
+                document.getElementById('info-mode-text').innerText = "실시간 클라우드(공유)";
+                document.getElementById('info-mode-text').className = "font-semibold text-brand-600";
 
-            // 3. Fines Snapshot
-            onSnapshot(finesCol, (snapshot) => {
-                fines = [];
-                snapshot.forEach(doc => {
-                    fines.push(doc.data());
-                });
-                loadedCollections.fines = true;
-                if (loadedCollections.players && loadedCollections.matches) updateAll();
-                checkLoadProgress();
-            }, (err) => {
-                console.error("Fines load failed: ", err);
-            });
-        }
+                try {
+                    const app = initializeApp(firebaseConfig);
+                    auth = getAuth(app);
+                    db = getFirestore(app);
 
-        async function seedInitialData() {
-            const defaultPlayers = [
-                { id: 'p1', name: '김철수' },
-                { id: 'p2', name: '이민호' },
-                { id: 'p3', name: '박지성' },
-                { id: 'p4', name: '손흥민' },
-                { id: 'p5', name: '이강인' },
-                { id: 'p6', name: '김민재' },
-                { id: 'p7', name: '황희찬' },
-                { id: 'p8', name: '조규성' },
-            ];
-            const defaultMatches = [
-                { id: 'm1', date: '2026-05-01', teamA: ['p1', 'p2', 'p3', 'p4'], teamB: ['p5', 'p6', 'p7', 'p8'], scoreA: 5, scoreB: 3, mom: 'p3' },
-                { id: 'm2', date: '2026-05-15', teamA: ['p1', 'p5', 'p6', 'p8'], teamB: ['p2', 'p3', 'p4', 'p7'], scoreA: 4, scoreB: 4, mom: 'p1' },
-            ];
-            const defaultFines = [
-                { id: 'f1', playerId: 'p2', type: 'late', amount: 5000, date: '2026-05-15' },
-                { id: 'f2', playerId: 'p3', type: 'dues', amount: 15000, date: '2026-05-01' },
-            ];
-
-            try {
-                for (let p of defaultPlayers) {
-                    await setDoc(doc(playersCol, p.id), p);
+                    await signInAnonymously(auth);
+                    setupCloudListeners();
+                } catch (err) {
+                    console.error("Cloud connection failed:", err);
+                    showToast("⚠️ 클라우드 설정 오류. 로컬 모드로 전환합니다.");
+                    useCloud = false;
+                    initLocalMode();
                 }
-                for (let m of defaultMatches) {
-                    await setDoc(doc(matchesCol, m.id), m);
-                }
-                for (let f of defaultFines) {
-                    await setDoc(doc(finesCol, f.id), f);
-                }
-                hideLoading();
-            } catch (err) {
-                console.error("Error seeding initial cloud data: ", err);
-                hideLoading();
+            } else {
+                // Local Mode
+                initLocalMode();
             }
         }
 
-        function updateAll() {
-            calculateStats();
-            updateDashboard();
-            renderMembers();
-            renderMatches();
-            renderFines();
+        function initLocalMode() {
+            document.getElementById('cloud-badge').innerText = "로컬 모드";
+            document.getElementById('cloud-badge').className = "text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500 text-white";
+            loadLocalData();
+            hideLoading();
+            updateAll();
         }
 
-        // Logic calculations
+        // ==========================================================
+        // 💾 1. Local Database Operations
+        // ==========================================================
+        function loadLocalData() {
+            const localPlayers = localStorage.getItem('df_players');
+            const localMatches = localStorage.getItem('df_matches');
+            const localFines = localStorage.getItem('df_fines');
+
+            if (!localPlayers) {
+                // Seed initial data to browser
+                players = [
+                    { id: 'p1', name: '김철수' },
+                    { id: 'p2', name: '이민호' },
+                    { id: 'p3', name: '박지성' },
+                    { id: 'p4', name: '손흥민' },
+                    { id: 'p5', name: '이강인' },
+                    { id: 'p6', name: '김민재' },
+                    { id: 'p7', name: '황희찬' },
+                    { id: 'p8', name: '조규성' },
+                ];
+                matches = [
+                    { id: 'm1', date: '2026-05-01', teamA: ['p1', 'p2', 'p3', 'p4'], teamB: ['p5', 'p6', 'p7', 'p8'], scoreA: 5, scoreB: 3, mom: 'p3' },
+                    { id: 'm2', date: '2026-05-15', teamA: ['p1', 'p5', 'p6', 'p8'], teamB: ['p2', 'p3', 'p4', 'p7'], scoreA: 4, scoreB: 4, mom: 'p1' },
+                ];
+                fines = [
+                    { id: 'f1', playerId: 'p2', type: 'late', amount: 5000, date: '2026-05-15' },
+                    { id: 'f2', playerId: 'p3', type: 'dues', amount: 15000, date: '2026-05-01' },
+                ];
+                saveToLocalStorage();
+            } else {
+                players = JSON.parse(localPlayers);
+                matches = JSON.parse(localMatches || '[]');
+                fines = JSON.parse(localFines || '[]');
+            }
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('df_players', JSON.stringify(players));
+            localStorage.setItem('df_matches', JSON.stringify(matches));
+            localStorage.setItem('df_fines', JSON.stringify(fines));
+        }
+
+        // ==========================================================
+        // ☁️ 2. Cloud Database Listeners
+        // ==========================================================
+        let loadedCollections = { players: false, matches: false, fines: false };
+
+        function setupCloudListeners() {
+            const playersCol = collection(db, 'artifacts', appId, 'public', 'data', 'players');
+            const matchesCol = collection(db, 'artifacts', appId, 'public', 'data', 'matches');
+            const finesCol = collection(db, 'artifacts', appId, 'public', 'data', 'fines');
+
+            onSnapshot(playersCol, (snapshot) => {
+                players = [];
+                snapshot.forEach(doc => players.push(doc.data()));
+                loadedCollections.players = true;
+                checkCloudLoadProgress();
+            });
+
+            onSnapshot(matchesCol, (snapshot) => {
+                matches = [];
+                snapshot.forEach(doc => matches.push(doc.data()));
+                loadedCollections.matches = true;
+                checkCloudLoadProgress();
+            });
+
+            onSnapshot(finesCol, (snapshot) => {
+                fines = [];
+                snapshot.forEach(doc => fines.push(doc.data()));
+                loadedCollections.fines = true;
+                checkCloudLoadProgress();
+            });
+        }
+
+        async function checkCloudLoadProgress() {
+            if (loadedCollections.players && loadedCollections.matches && loadedCollections.fines) {
+                if (players.length === 0) {
+                    // Seed cloud with initial data
+                    const seedPlayers = [
+                        { id: 'p1', name: '김철수' },
+                        { id: 'p2', name: '이민호' },
+                        { id: 'p3', name: '박지성' },
+                        { id: 'p4', name: '손흥민' },
+                        { id: 'p5', name: '이강인' },
+                        { id: 'p6', name: '김민재' },
+                        { id: 'p7', name: '황희찬' },
+                        { id: 'p8', name: '조규성' },
+                    ];
+                    const seedMatches = [
+                        { id: 'm1', date: '2026-05-01', teamA: ['p1', 'p2', 'p3', 'p4'], teamB: ['p5', 'p6', 'p7', 'p8'], scoreA: 5, scoreB: 3, mom: 'p3' },
+                        { id: 'm2', date: '2026-05-15', teamA: ['p1', 'p5', 'p6', 'p8'], teamB: ['p2', 'p3', 'p4', 'p7'], scoreA: 4, scoreB: 4, mom: 'p1' },
+                    ];
+                    const seedFines = [
+                        { id: 'f1', playerId: 'p2', type: 'late', amount: 5000, date: '2026-05-15' },
+                        { id: 'f2', playerId: 'p3', type: 'dues', amount: 15000, date: '2026-05-01' },
+                    ];
+                    try {
+                        for (let p of seedPlayers) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', p.id), p);
+                        for (let m of seedMatches) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'matches', m.id), m);
+                        for (let f of seedFines) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'fines', f.id), f);
+                    } catch (e) {
+                        console.error("Cloud seed failed:", e);
+                    }
+                }
+                hideLoading();
+                updateAll();
+            }
+        }
+
+        // ==========================================================
+        // 📊 3. Logic & Calculations
+        // ==========================================================
         function calculateStats() {
             derivedStats = {};
             players.forEach(p => {
@@ -575,6 +655,14 @@
             });
         }
 
+        function updateAll() {
+            calculateStats();
+            updateDashboard();
+            renderMembers();
+            renderMatches();
+            renderFines();
+        }
+
         function updateDashboard() {
             document.getElementById('stat-total-matches').innerText = matches.length;
             document.getElementById('stat-total-members').innerText = players.length;
@@ -591,9 +679,7 @@
                 let topAttend = [...validPlayers].sort((a, b) => b.played - a.played || b.winRate - a.winRate)[0];
                 document.getElementById('mvp-attend-name').innerText = topAttend.name;
                 document.getElementById('mvp-attend-val').innerText = `${topAttend.attendanceRate}%`;
-                
-                let attendDetail = document.getElementById('mvp-attend-detail');
-                if(attendDetail) attendDetail.innerText = `${topAttend.played}경기 참석`;
+                document.getElementById('mvp-attend-detail').innerText = `${topAttend.played}경기 참석`;
 
                 let topMom = [...validPlayers].sort((a, b) => b.momCount - a.momCount || b.played - a.played)[0];
                 document.getElementById('mvp-mom-name').innerText = topMom.name;
@@ -604,10 +690,7 @@
                 document.getElementById('mvp-winrate-detail').innerText = "0승 0무 0패";
                 document.getElementById('mvp-attend-name').innerText = "-";
                 document.getElementById('mvp-attend-val').innerText = "0%";
-                
-                let attendDetail = document.getElementById('mvp-attend-detail');
-                if(attendDetail) attendDetail.innerText = "0경기 참석";
-
+                document.getElementById('mvp-attend-detail').innerText = "0경기 참석";
                 document.getElementById('mvp-mom-name').innerText = "-";
                 document.getElementById('mvp-mom-val').innerText = "0회";
             }
@@ -663,11 +746,8 @@
             const btns = document.querySelectorAll('.sort-btn');
             btns.forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    btns.forEach(b => {
-                        b.classList.remove('bg-white', 'text-brand-600', 'shadow-sm');
-                    });
+                    btns.forEach(b => b.classList.remove('bg-white', 'text-brand-600', 'shadow-sm'));
                     e.target.classList.add('bg-white', 'text-brand-600', 'shadow-sm');
-                    
                     currentSort = e.target.dataset.sort;
                     renderMembers();
                 });
@@ -805,17 +885,155 @@
             }
         }
 
+        // ==========================================================
+        // 🛠️ 4. Data Modifying Operations (Support both Local & Cloud)
+        // ==========================================================
         async function deleteFine(id) {
-            if (!currentUser) return;
-            try {
-                await deleteDoc(doc(finesCol, id));
+            if (useCloud) {
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'fines', id));
+                    showToast("✅ 납부 완료 처리되었습니다.");
+                } catch (e) {
+                    showToast("삭제 에러: " + e.message);
+                }
+            } else {
+                fines = fines.filter(f => f.id !== id);
+                saveToLocalStorage();
+                updateAll();
                 showToast("✅ 납부 완료 처리되었습니다.");
-            } catch (e) {
-                showToast("삭제 에러: " + e.message);
             }
         }
 
-        // Navigation
+        async function addMember() {
+            const nameInput = document.getElementById('newMemberName');
+            const name = nameInput.value.trim();
+            if (!name) {
+                showToast("이름을 입력해주세요.");
+                return;
+            }
+            if (players.some(p => p.name === name)) {
+                showToast("이미 존재하는 멤버입니다.");
+                return;
+            }
+
+            const newId = 'p' + Date.now();
+            const newMember = { id: newId, name: name };
+
+            if (useCloud) {
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', newId), newMember);
+                    closeModal('addMemberModal');
+                    showToast(`${name} 멤버가 추가되었습니다.`);
+                } catch (e) {
+                    showToast("클라우드 저장 실패: " + e.message);
+                }
+            } else {
+                players.push(newMember);
+                saveToLocalStorage();
+                closeModal('addMemberModal');
+                updateAll();
+                showToast(`${name} 멤버가 추가되었습니다.`);
+            }
+        }
+
+        async function saveMatch() {
+            const date = document.getElementById('matchDate').value;
+            if(!date) {
+                showToast("날짜를 선택해주세요.");
+                return;
+            }
+
+            const teamA = Array.from(document.querySelectorAll('.p-chk-a:checked')).map(el => el.value);
+            const teamB = Array.from(document.querySelectorAll('.p-chk-b:checked')).map(el => el.value);
+
+            if (teamA.length === 0 && teamB.length === 0) {
+                showToast("참가 멤버를 선택해주세요.");
+                return;
+            }
+
+            const mom = document.getElementById('matchMom').value;
+            const newId = 'm' + Date.now();
+            const newMatch = {
+                id: newId,
+                date: date,
+                teamA: teamA,
+                teamB: teamB,
+                scoreA: formScoreA,
+                scoreB: formScoreB,
+                mom: mom || null
+            };
+
+            if (useCloud) {
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'matches', newId), newMatch);
+                    closeModal('addMatchModal');
+                    showToast("경기 결과가 실시간으로 기록되었습니다.");
+                    switchTab('dashboard');
+                } catch (e) {
+                    showToast("저장 실패: " + e.message);
+                }
+            } else {
+                matches.push(newMatch);
+                saveToLocalStorage();
+                closeModal('addMatchModal');
+                updateAll();
+                showToast("경기 결과가 로컬에 기록되었습니다.");
+                switchTab('dashboard');
+            }
+        }
+
+        async function saveFine() {
+            const playerId = document.getElementById('finePlayer').value;
+            const amountStr = document.getElementById('fineAmount').value;
+            const amount = parseInt(amountStr);
+            const type = document.querySelector('input[name="fineType"]:checked').value;
+            
+            let date = document.getElementById('matchDate').value; 
+            if(!date) {
+                const today = new Date();
+                const offset = today.getTimezoneOffset() * 60000;
+                const kstDate = new Date(today.getTime() - offset + (9 * 3600000));
+                date = kstDate.toISOString().split('T')[0];
+            }
+
+            if (!playerId) {
+                showToast("멤버를 선택해주세요.");
+                return;
+            }
+            if (!amount || amount <= 0 || isNaN(amount)) {
+                showToast("올바른 금액을 입력해주세요.");
+                return;
+            }
+
+            const newId = 'f' + Date.now();
+            const newFine = {
+                id: newId,
+                playerId: playerId,
+                type: type,
+                amount: amount,
+                date: date
+            };
+
+            if (useCloud) {
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'fines', newId), newFine);
+                    closeModal('addFineModal');
+                    showToast("금액이 부과되어 실시간 업데이트되었습니다.");
+                } catch (e) {
+                    showToast("부과 실패: " + e.message);
+                }
+            } else {
+                fines.push(newFine);
+                saveToLocalStorage();
+                closeModal('addFineModal');
+                updateAll();
+                showToast("금액이 성공적으로 부과되었습니다.");
+            }
+        }
+
+        // ==========================================================
+        // 📱 5. Navigation & UI Controls
+        // ==========================================================
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(el => {
@@ -854,41 +1072,6 @@
             
             if(modalId === 'addMemberModal') document.getElementById('newMemberName').value = '';
             if(modalId === 'addFineModal') document.getElementById('fineAmount').value = '';
-        }
-
-        function showToast(msg) {
-            const toast = document.getElementById('toast');
-            if(!toast) return;
-            toast.innerText = msg;
-            toast.classList.remove('opacity-0');
-            toast.classList.add('opacity-100');
-            setTimeout(() => {
-                toast.classList.remove('opacity-100');
-                toast.classList.add('opacity-0');
-            }, 2500);
-        }
-
-        async function addMember() {
-            if (!currentUser) return;
-            const nameInput = document.getElementById('newMemberName');
-            const name = nameInput.value.trim();
-            if (!name) {
-                showToast("이름을 입력해주세요.");
-                return;
-            }
-            if (players.some(p => p.name === name)) {
-                showToast("이미 존재하는 멤버입니다.");
-                return;
-            }
-
-            const newId = 'p' + Date.now();
-            try {
-                await setDoc(doc(playersCol, newId), { id: newId, name: name });
-                closeModal('addMemberModal');
-                showToast(`${name} 멤버가 추가되었습니다.`);
-            } catch (e) {
-                showToast("클라우드 저장 실패: " + e.message);
-            }
         }
 
         function populateMatchModal() {
@@ -974,93 +1157,12 @@
             document.getElementById('scoreB-display').innerText = formScoreB;
         }
 
-        async function saveMatch() {
-            if (!currentUser) return;
-            const date = document.getElementById('matchDate').value;
-            if(!date) {
-                showToast("날짜를 선택해주세요.");
-                return;
-            }
-
-            const teamA = Array.from(document.querySelectorAll('.p-chk-a:checked')).map(el => el.value);
-            const teamB = Array.from(document.querySelectorAll('.p-chk-b:checked')).map(el => el.value);
-
-            if (teamA.length === 0 && teamB.length === 0) {
-                showToast("참가 멤버를 선택해주세요.");
-                return;
-            }
-
-            const mom = document.getElementById('matchMom').value;
-            const newId = 'm' + Date.now();
-            const newMatch = {
-                id: newId,
-                date: date,
-                teamA: teamA,
-                teamB: teamB,
-                scoreA: formScoreA,
-                scoreB: formScoreB,
-                mom: mom || null
-            };
-
-            try {
-                await setDoc(doc(matchesCol, newId), newMatch);
-                closeModal('addMatchModal');
-                showToast("경기 결과가 실시간으로 기록되었습니다.");
-                switchTab('dashboard');
-            } catch (e) {
-                showToast("저장 실패: " + e.message);
-            }
-        }
-
-        async function saveFine() {
-            if (!currentUser) return;
-            const playerId = document.getElementById('finePlayer').value;
-            const amountStr = document.getElementById('fineAmount').value;
-            const amount = parseInt(amountStr);
-            const type = document.querySelector('input[name="fineType"]:checked').value;
-            
-            let date = document.getElementById('matchDate').value; 
-            if(!date) {
-                const today = new Date();
-                const offset = today.getTimezoneOffset() * 60000;
-                const kstDate = new Date(today.getTime() - offset + (9 * 3600000));
-                date = kstDate.toISOString().split('T')[0];
-            }
-
-            if (!playerId) {
-                showToast("멤버를 선택해주세요.");
-                return;
-            }
-            if (!amount || amount <= 0 || isNaN(amount)) {
-                showToast("올바른 금액을 입력해주세요.");
-                return;
-            }
-
-            const newId = 'f' + Date.now();
-            const newFine = {
-                id: newId,
-                playerId: playerId,
-                type: type,
-                amount: amount,
-                date: date
-            };
-
-            try {
-                await setDoc(doc(finesCol, newId), newFine);
-                closeModal('addFineModal');
-                showToast("금액이 부과되어 실시간 업데이트되었습니다.");
-            } catch (e) {
-                showToast("부과 실패: " + e.message);
-            }
-        }
-
-        // Display current userId info for user discoverability
+        // Info / Setup Trigger
         document.getElementById('infoBtn').addEventListener('click', () => {
-            const currentUid = auth.currentUser ? auth.currentUser.uid : '알 수 없음';
-            showToast(`실시간 동기화 상태: ON (ID: ${currentUid})`);
+            openModal('infoModal');
         });
 
-        // Export to global window context for HTML event listeners (onclicks)
+        // Export to global window context for HTML onclicks
         window.openModal = openModal;
         window.closeModal = closeModal;
         window.switchTab = switchTab;
@@ -1070,7 +1172,7 @@
         window.saveFine = saveFine;
         window.deleteFine = deleteFine;
 
-        // Run
+        // Run Init
         window.onload = init;
     </script>
 </body>
