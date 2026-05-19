@@ -393,27 +393,15 @@
         // ==========================================================
         // 🔒 [설정] 나만의 실시간 클라우드를 연동하고 싶을 때 아래의 값을 변경하세요!
         // ==========================================================
-        // Import the functions you need from the SDKs you need
-	import { initializeApp } from "firebase/app";
-	import { getAnalytics } from "firebase/analytics";
-	// TODO: Add SDKs for Firebase products that you want to use
-	// https://firebase.google.com/docs/web/setup#available-libraries
-
-	// Your web app's Firebase configuration
-	// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-	const firebaseConfig = {
-		apiKey: "AIzaSyDd2dwCMNhC7BgTfSsZ7Xbkf8QPM_A27qM",
- 		authDomain: "dw-futsal.firebaseapp.com",
- 		projectId: "dw-futsal",
- 		storageBucket: "dw-futsal.firebasestorage.app",
-		messagingSenderId: "285897520402",
- 		appId: "1:285897520402:web:853ae10ed196ff1d9eefcb",
-		measurementId: "G-60N3YEQM84"
-	};
-
-	// Initialize Firebase
-	const app = initializeApp(firebaseConfig);
-	const analytics = getAnalytics(app);// 👈 여기에 복사한 json 설정을 넣으세요. (예: { apiKey: "...", ... })
+  const firebaseConfig = {
+  apiKey: "AIzaSyDd2dwCMNhC7BgTfSsZ7Xbkf8QPM_A27qM",
+  authDomain: "dw-futsal.firebaseapp.com",
+  projectId: "dw-futsal",
+  storageBucket: "dw-futsal.firebasestorage.app",
+  messagingSenderId: "285897520402",
+  appId: "1:285897520402:web:853ae10ed196ff1d9eefcb",
+  measurementId: "G-60N3YEQM84"
+};// 👈 여기에 복사한 json 설정을 넣으세요. (예: { apiKey: "...", ... })
         // ==========================================================
 
         let firebaseConfig = MY_FIREBASE_CONFIG;
